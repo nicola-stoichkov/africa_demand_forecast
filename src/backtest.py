@@ -49,14 +49,18 @@ def origins(window_end, tz, n_weeks=N_WEEKS):
     return [(end - pd.Timedelta(weeks=k)).tz_localize(tz) for k in range(n_weeks, 0, -1)]
 
 
-def run_backtest(df, fit_predict, window_end, tz):
-    """Forecast each week from its origin; return one row per forecast hour (actual + forecast)."""
+def run_backtest(df, fit_predict, window_end, tz, hidden=HIDDEN):
+    """Forecast each week from its origin; return one row per forecast hour (actual + forecast).
+
+    hidden = columns removed from `future`. A model that must not see the actual weather (the
+    imperfect-forecast variant) passes HIDDEN + ["precipitation", "rain"].
+    """
     rows = []
     for origin in origins(window_end, tz):
         week_end = (origin.tz_localize(None) + pd.Timedelta(days=7)).tz_localize(tz)
         history = df[df["timestamp"] < origin]
         target = df[(df["timestamp"] >= origin) & (df["timestamp"] < week_end)]
-        forecast = np.asarray(fit_predict(history, target.drop(columns=HIDDEN)), dtype=float)
+        forecast = np.asarray(fit_predict(history, target.drop(columns=hidden)), dtype=float)
         # A NaN would silently drop out of the sums and flatter the score, so stop instead.
         if len(forecast) != len(target) or np.isnan(forecast).any():
             raise ValueError(f"bad forecast for origin {origin}: wrong length or NaN")
