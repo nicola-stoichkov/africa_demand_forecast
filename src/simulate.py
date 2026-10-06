@@ -2,7 +2,7 @@
 
     orders[t] = base_level x hourly_profile[hour] x weekday[dow] x rain x holiday
                 x ramadan(hour) x payday x promo x growth(t) x daily_shock   -> negative-binomial noise
-    couriers[t] = supply (3h-smoothed baseline demand) x growth x rain penalty -> Poisson noise
+    couriers[t] = max(supply (3h-smoothed baseline demand), min night fleet) x rain penalty -> Poisson noise
     orders_completed[t] = min(orders, couriers x 4)   (demand above courier capacity is lost)
 
 All parameters are FICTIONAL assumptions, listed in docs/assumptions.md.
@@ -30,6 +30,7 @@ PAYDAY_EFFECT = 1.07     # payday and the two days after
 GROWTH_PER_YEAR = 0.20   # linear order growth
 NB_DISPERSION = 100      # negative binomial k: bigger = less noise
 ORDERS_PER_COURIER = 2.5  # baseline: 1 courier online per 2.5 orders/hour
+MIN_COURIERS_ONLINE = 30  # minimum fleet kept online for coverage, so quiet night hours are not short of couriers
 RAMADAN_DAY_HOURS = range(9, 17)      # daytime fast
 RAMADAN_EVENING_HOURS = range(19, 24)  # post-iftar window (iftar is about 18:20-19:00 in Casablanca)
 DAILY_SHOCK_SD = 0.04    # whole-day demand shock (lognormal sd): busy and quiet days nobody can explain
@@ -140,8 +141,11 @@ def simulate_city(city_key, rng):
     orders = rng.negative_binomial(k, k / (k + mean_orders))
 
     # Couriers work shifts, so supply follows a smoothed (3-hour centred average) version of
-    # baseline demand, not each hourly jump. Fewer couriers when it rains.
+    # baseline demand, not each hourly jump. A minimum fleet stays online at night (without it, small
+    # Poisson courier counts randomly fall below demand / 4 in about 1 night hour in 10).
+    # Fewer couriers when it rains, at every hour.
     supply_mean = baseline.rolling(3, center=True, min_periods=1).mean() / ORDERS_PER_COURIER
+    supply_mean = np.maximum(supply_mean, MIN_COURIERS_ONLINE)
     supply_mean = supply_mean * np.where(raining, 1 - p["rain_supply"], 1.0)
     couriers = rng.poisson(supply_mean)
 

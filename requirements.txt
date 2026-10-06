@@ -1,5 +1,6 @@
 # Pinned so the simulated data is reproducible: `holidays` versions move estimated Eid dates
 # (and so Ramadan), and `tzdata` sets Casablanca's clock changes.
+# Python 3.13 (tested on 3.13.1).
 pandas==3.0.6
 numpy==2.5.3
 requests==2.34.2

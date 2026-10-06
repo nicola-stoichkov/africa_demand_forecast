@@ -36,7 +36,7 @@ Regenerate with `python src/calendar_features.py` then `python src/simulate.py` 
 **1. Courier supply** (`src/simulate.py`, courier block)
 - v0: `baseline.shift(1).bfill() / 2.5`: couriers followed demand one hour late. Because demand rises 2-3x per hour at the start of each peak, the fleet was 3x short at noon and idle at 15:00 every normal day.
 - v1: `baseline.rolling(3, center=True, min_periods=1).mean() / 2.5`. Couriers work shifts, so supply is a smoothed version of normal demand.
-- Result: dry orders per courier now runs from about 2.0 on the shoulders to 3.0 at the peaks (v0: 1.15 to 7.5).
+- Result: dry orders per courier now runs from about 1.6 in the dips between peaks (10:00, 16:00) to 3.0 at the peaks (v0: 0.3 at 00:00 and 1.1 at 15:00, up to 7.4 at 11:00). With the minimum fleet added later (section 6), nights run at about 1.2.
 
 **2. Midnight cliff** (`hourly_profile`)
 - v0: the dinner peak was measured on a straight line, so hour 0 got nothing from a 20:30 dinner peak.
@@ -88,7 +88,7 @@ Regenerate with `python src/calendar_features.py` then `python src/simulate.py` 
 - gives growth as "+20% of the starting level per year (about +18% year on year in year 2)";
 - calls 2.5 orders per courier a daily-average, illustrative ratio;
 - cites tzdata 2026.5;
-- compares Ramadan dates with Morocco's official ones (the data starts 1-2 days early);
+- compares Ramadan dates with Morocco's official ones (2025 is 1-2 days early at both ends; 2026 starts 1 day early);
 - adds every new parameter and a censored-demand table.
 
 `notebooks/01_eda.ipynb`:
@@ -120,16 +120,18 @@ Regenerate with `python src/calendar_features.py` then `python src/simulate.py` 
 | Rows per city | 17,520 | 17,496 (Casablanca 17,497) |
 | Period (local) | partial 2024-10-01 to partial 2026-10-01 | 2024-10-02 to 2026-09-30, full days |
 | Mean orders/day (Casa / Nairobi / Lagos) | 7,710 / 6,433 / 10,416 | 7,738 / 6,440 / 10,466 |
-| Dry orders per courier, by hour | 1.15 to 7.5 | about 2.0 to 3.0 |
+| Dry orders per courier, by hour | 0.3 to 7.4 | about 1.2 (night, minimum fleet) to 3.0 |
 | Order share at 00:00 (Casablanca) | 5.2‰ | 17.5‰ |
 | Ramadan effect on Casablanca's daily total | about +7% | about +11% |
-| Day-level noise (sd of actual / true mean) | 3.1% | 5.3% |
-| Hour-to-hour correlation of errors | about 0 | about 0.12 |
-| Best possible WMAPE (true mean as forecast, clean weeks) | about 8.5% | about 9.5% |
-| Rainy peak hours capped by couriers (Casablanca) | n/a | 81% (dry: 0.3%) |
-| Rain uplift: demand vs completed (Casablanca) | n/a | +24% vs +9% |
+| Day-level noise, Casablanca (sd of actual / true mean) | 3.2% | 5.1% |
+| Hour-to-hour correlation of errors (all hours; peak hours only) | about 0 | about 0.07; 0.10 |
+| Best possible WMAPE (true mean as forecast, Casablanca, before Aug 2026) | about 9.0% | about 9.5% |
+| Rainy peak hours capped by couriers (Casablanca) | n/a | 81% (dry: 0.2%) |
+| Rain uplift: demand vs completed (Casablanca) | n/a | +24% vs +11% (cap of 4; +23% with a cap of 5, see assumptions.md) |
 
 Planted effects (rain, Ramadan, payday, holiday, courier penalty) still recover within a few points of their documented values.
+
+*Corrected after a second review:* the courier-ratio range, day-level noise, error correlation and v0 WMAPE rows above were re-measured; the first versions did not match the data. `assumptions.md` was corrected the same way (demand lost in rainy peaks, Ramadan effect outside Casablanca) and now shows how the censoring result depends on the assumed cap of 4. The EDA fleet chart now shows demand and completed orders per courier against that cap. The courier rows show the data after the section 6 changes.
 
 ---
 
@@ -139,4 +141,22 @@ Planted effects (rain, Ramadan, payday, holiday, courier penalty) still recover 
 - All other effect sizes, the growth rate and the noise parameter (k = 100).
 - The three planted anomalies per city (only the Lagos break date moved by one day).
 - The redundant `rain` column, which is identical to `precipitation`.
-- Known limits: weather actuals at one point per city; Ramadan dates 1-2 days early for Morocco; the backtest window (last 8 weeks) has almost no rain and no Ramadan, so a February-March window is planned for the effect-recovery check.
+- Known limits: weather actuals at one point per city; Ramadan dates 1-2 days early for Morocco (2025 also ends a day early); the backtest window (last 8 weeks) has almost no rain and no Ramadan, so a February-March window is planned for the effect-recovery check.
+
+---
+
+## 6. Second-review fixes (v1.1)
+
+A second, independent review re-ran everything. Fixes:
+
+| Change | File | Why |
+|---|---|---|
+| Minimum fleet of 30 couriers online every hour (applied before the rain penalty) | `src/simulate.py` | Small night-time courier counts fell below demand / 4 by chance in about 1 night hour in 10, so `orders_completed` showed a night-time shortage that is a simulation artefact. Night hours capped: 8-10% → 0.1-1.5% |
+| Pinned `tzdata` used on every OS, plus a check that fails loudly | `src/calendar_features.py` | On Linux and macOS, Python reads the system timezone database first, and an older one would shift Casablanca's local hours after 2026-09-20, inside the backtest window |
+| Python version noted | `requirements.txt` | Tested on Python 3.13.1 |
+| Ramadan date note corrected | `src/calendar_features.py`, `docs/assumptions.md` | In 2025 the window also ends a day early: 30 March 2025, a real fasting day in Morocco, is treated as Eid |
+| Censoring outside rain documented | `docs/assumptions.md` | Ramadan evenings (37% capped in Casablanca), the known promo and the post-break weeks also hit the courier cap |
+| `rain_forecast` caveat | `docs/assumptions.md` | In Casablanca's last 8 weeks, 16 of 17 forecast-rainy hours are false alarms; the weather comparison needs Lagos or the Feb-Mar 2026 window |
+
+**What changed in the data:** `orders` (the forecast target) is unchanged, byte for byte. `couriers_online`, `orders_completed` and `rain_forecast` were redrawn: numpy's Poisson sampler uses a variable number of random numbers, so changing any courier mean shifts every later random draw. The new values are the same kind of noise, so all documented effects still hold; the courier and censoring numbers in this file and in `assumptions.md` were re-measured on the new data.
+
