@@ -61,9 +61,10 @@ def run_backtest(df, fit_predict, window_end, tz, hidden=HIDDEN):
         history = df[df["timestamp"] < origin]
         target = df[(df["timestamp"] >= origin) & (df["timestamp"] < week_end)]
         forecast = np.asarray(fit_predict(history, target.drop(columns=hidden)), dtype=float)
-        # A NaN would silently drop out of the sums and flatter the score, so stop instead.
-        if len(forecast) != len(target) or np.isnan(forecast).any():
-            raise ValueError(f"bad forecast for origin {origin}: wrong length or NaN")
+        # A NaN would silently drop out of the sums and flatter the score, and orders can't be
+        # negative (models clip at 0 themselves), so stop instead.
+        if len(forecast) != len(target) or np.isnan(forecast).any() or (forecast < 0).any():
+            raise ValueError(f"bad forecast for origin {origin}: wrong length, NaN or negative")
         rows.append(target[["timestamp", "hour", TARGET]].assign(origin=origin, forecast=forecast))
     return pd.concat(rows, ignore_index=True)
 
