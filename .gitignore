@@ -5,5 +5,5 @@ __pycache__/
 *.pyc
 
 # private working files (not for the public repo)
-docs/PROJECT_CONTEXT.private.md
+docs/*.private.md
 setup_github.sh
