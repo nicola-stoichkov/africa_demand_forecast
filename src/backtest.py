@@ -17,7 +17,6 @@ from config import CITIES
 PROCESSED_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
 TARGET = "orders"  # true demand (not orders_completed, which is capped by couriers)
 HIDDEN = ["orders", "orders_completed", "couriers_online"]  # never shown for the future
-PEAK_HOURS = [12, 13, 14, 19, 20, 21, 22]  # lunch + dinner: the hours ops care about most
 N_WEEKS = 8
 # Window name -> first local day AFTER the window. Each window has 8 weekly origins.
 WINDOWS = {
@@ -65,8 +64,8 @@ def run_backtest(df, fit_predict, window_end, tz):
     return pd.concat(rows, ignore_index=True)
 
 
-def score_one(g):
-    peak = g["hour"].isin(PEAK_HOURS)
+def score_one(g, peak_hours):
+    peak = g["hour"].isin(peak_hours)
     return pd.Series({
         "wmape": wmape(g[TARGET], g["forecast"]),
         "bias": bias(g[TARGET], g["forecast"]),
@@ -75,10 +74,10 @@ def score_one(g):
     })
 
 
-def score(forecasts):
-    """One row per forecast week, plus 'all' for the whole window."""
-    weekly = forecasts.groupby(forecasts["origin"].dt.strftime("%Y-%m-%d")).apply(score_one)
-    weekly.loc["all"] = score_one(forecasts)
+def score(forecasts, peak_hours):
+    """One row per forecast week, plus 'all' for the whole window. peak_hours: the city's peak hours."""
+    weekly = forecasts.groupby(forecasts["origin"].dt.strftime("%Y-%m-%d")).apply(score_one, peak_hours=peak_hours)
+    weekly.loc["all"] = score_one(forecasts, peak_hours)
     weekly["hours"] = weekly["hours"].astype(int)
     return weekly
 
@@ -91,4 +90,4 @@ if __name__ == "__main__":
     tz = CITIES[key]["tz"]
     for name, end in WINDOWS.items():
         print(f"\n== {CITIES[key]['name']} | seasonal-naive | {name} ==")
-        print(score(run_backtest(df, seasonal_naive, end, tz)).round(3).to_string())
+        print(score(run_backtest(df, seasonal_naive, end, tz), CITIES[key]["peak_hours"]).round(3).to_string())
