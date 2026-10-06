@@ -1,9 +1,12 @@
-pandas
-numpy
-requests
-holidays
-lightgbm
-matplotlib
-pyarrow
-jupyter
+# Pinned so the simulated data is reproducible: `holidays` versions move estimated Eid dates
+# (and so Ramadan), and `tzdata` sets Casablanca's clock changes.
+pandas==3.0.6
+numpy==2.5.3
+requests==2.34.2
+holidays==0.106
+tzdata==2026.5
+lightgbm==4.7.0
+matplotlib==3.11.2
+pyarrow==25.0.1
+jupyter==1.1.1
 # timesfm: install per the official google-research/timesfm README (see issue on TimesFM)

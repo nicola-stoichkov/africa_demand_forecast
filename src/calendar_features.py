@@ -9,7 +9,7 @@ from pathlib import Path
 import holidays
 import pandas as pd
 
-from config import CITIES
+from config import CITIES, END_DATE, START_DATE
 
 RAW_DIR = Path(__file__).resolve().parents[1] / "data" / "raw"
 
@@ -30,7 +30,8 @@ def ramadan_dates(country, years):
     """Approximate Ramadan: the 30 days before the first day of Eid al-Fitr.
 
     Eid dates in the `holidays` library are estimated from the Islamic calendar, so this can be
-    off by a day or so versus the real moon-sighting. Good enough for a demand effect.
+    off versus the real moon-sighting: for Morocco it starts 1-2 days early in 2025 and 2026
+    (see docs/assumptions.md). Good enough for a demand effect.
     """
     hol = holidays.country_holidays(country, years=years, language="en_US")
     eid_days = sorted(d for d, name in hol.items() if "fitr" in name.lower())
@@ -59,19 +60,27 @@ def build_calendar(city_key):
     df = load_weather(city_key)
     local_date = df["timestamp"].dt.tz_localize(None).dt.normalize()  # local calendar date
 
+    # Weather starts/ends at UTC midnight, so the first local day (and, east of UTC, a stub of
+    # 2026-10-01) is incomplete. Keep full local days only: 2024-10-02 to 2026-09-30.
+    keep = (local_date > START_DATE) & (local_date <= END_DATE)
+    df = df[keep].reset_index(drop=True)
+    local_date = local_date[keep].reset_index(drop=True)
+
     df["hour"] = df["timestamp"].dt.hour
     df["dow"] = df["timestamp"].dt.dayofweek  # Monday = 0
 
     years = range(local_date.dt.year.min() - 1, local_date.dt.year.max() + 2)
     hol = holidays.country_holidays(city["country"], years=years, language="en_US")
     df["is_holiday"] = local_date.dt.date.isin(set(hol.keys()))
+    df["holiday_name"] = local_date.dt.date.map(hol.get).fillna("")  # "" on normal days
 
     df["is_ramadan"] = False
     for start, end in ramadan_dates(city["country"], years):
         df.loc[(local_date >= start) & (local_date <= end), "is_ramadan"] = True
 
-    # Payday flag is computed per calendar day, then mapped back onto the hours.
-    days = pd.Series(local_date.unique())
+    # Payday flag is computed per calendar day, then mapped back onto the hours. The day list
+    # starts 3 days early so a payday just before the data (30 Sept 2024) still opens a window.
+    days = pd.Series(pd.date_range(local_date.min() - pd.Timedelta(days=PAYDAY_WINDOW_DAYS), local_date.max()))
     flag_by_day = pd.Series(payday_window_flag(days, city_key).values, index=days)
     df["is_payday_window"] = local_date.map(flag_by_day).astype(bool)
     return df
