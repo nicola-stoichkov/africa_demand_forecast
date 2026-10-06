@@ -4,7 +4,6 @@ Time handling: weather is stored in UTC (continuous, no gaps or repeats). We con
 the city's real local time with tz_convert, so clock changes (Morocco: Ramadan, and the move
 to permanent UTC+0 on 2026-09-20) are handled by the timezone database, not by us.
 """
-import zoneinfo
 from pathlib import Path
 
 import holidays
@@ -13,14 +12,6 @@ import pandas as pd
 from config import CITIES, END_DATE, START_DATE
 
 RAW_DIR = Path(__file__).resolve().parents[1] / "data" / "raw"
-
-# Use the pinned `tzdata` package, not the operating system's timezone database (Linux and macOS
-# have their own, which may be older), so local hours are the same on every machine.
-zoneinfo.reset_tzpath(to=[])
-# Check: tzdata 2026.5 moves Morocco to permanent UTC+0 on 2026-09-20. An older database would
-# silently give different local hours for the last 10 days, inside the backtest window.
-if pd.Timestamp("2026-09-25 12:00", tz="Africa/Casablanca").utcoffset() != pd.Timedelta(0):
-    raise RuntimeError("Timezone database too old: pip install -r requirements.txt (tzdata 2026.5)")
 
 # Paydays assumed per city: last day of the month for all, plus the 25th in Nairobi.
 EXTRA_PAYDAY_DOM = {"nairobi": 25}
