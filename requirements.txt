@@ -1,0 +1,9 @@
+pandas
+numpy
+requests
+holidays
+lightgbm
+matplotlib
+pyarrow
+jupyter
+# timesfm: install per the official google-research/timesfm README (see issue on TimesFM)

@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+*.pyc
+
+# private working files (not for the public repo)
+docs/PROJECT_CONTEXT.private.md
+setup_github.sh
