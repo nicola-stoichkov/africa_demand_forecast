@@ -131,7 +131,7 @@ Regenerate with `python src/calendar_features.py` then `python src/simulate.py` 
 
 Planted effects (rain, Ramadan, payday, holiday, courier penalty) still recover within a few points of their documented values.
 
-*Corrected after a second review:* the courier-ratio range, day-level noise, error correlation and v0 WMAPE rows above were re-measured; the first versions did not match the data. `assumptions.md` was corrected the same way (demand lost in rainy peaks, Ramadan effect outside Casablanca) and now shows how the censoring result depends on the assumed cap of 4. The EDA fleet chart now shows demand and completed orders per courier against that cap. The courier rows show the data after the section 6 changes.
+*Corrected after a second review:* the courier-ratio range, day-level noise, error correlation and v0 WMAPE rows above were re-measured; the first versions did not match the data. `assumptions.md` was corrected the same way (demand lost in rainy peaks, Ramadan effect outside Casablanca) and now shows how the censoring result depends on the assumed cap of 4. The EDA fleet chart now shows demand and completed orders per courier against that cap. The courier rows show the v1.1 data (see `docs/data_changes_v1_1.md`).
 
 ---
 
@@ -145,18 +145,6 @@ Planted effects (rain, Ramadan, payday, holiday, courier penalty) still recover 
 
 ---
 
-## 6. Second-review fixes (v1.1)
+## 6. Later changes
 
-A second, independent review re-ran everything. Fixes:
-
-| Change | File | Why |
-|---|---|---|
-| Minimum fleet of 30 couriers online every hour (applied before the rain penalty) | `src/simulate.py` | Small night-time courier counts fell below demand / 4 by chance in about 1 night hour in 10, so `orders_completed` showed a night-time shortage that is a simulation artefact. Night hours capped: 8-10% → 0.1-1.5% |
-| Pinned `tzdata` used on every OS, plus a check that fails loudly | `src/calendar_features.py` | On Linux and macOS, Python reads the system timezone database first, and an older one would shift Casablanca's local hours after 2026-09-20, inside the backtest window |
-| Python version noted | `requirements.txt` | Tested on Python 3.13.1 |
-| Ramadan date note corrected | `src/calendar_features.py`, `docs/assumptions.md` | In 2025 the window also ends a day early: 30 March 2025, a real fasting day in Morocco, is treated as Eid |
-| Censoring outside rain documented | `docs/assumptions.md` | Ramadan evenings (37% capped in Casablanca), the known promo and the post-break weeks also hit the courier cap |
-| `rain_forecast` caveat | `docs/assumptions.md` | In Casablanca's last 8 weeks, 16 of 17 forecast-rainy hours are false alarms; the weather comparison needs Lagos or the Feb-Mar 2026 window |
-
-**What changed in the data:** `orders` (the forecast target) is unchanged, byte for byte. `couriers_online`, `orders_completed` and `rain_forecast` were redrawn: numpy's Poisson sampler uses a variable number of random numbers, so changing any courier mean shifts every later random draw. The new values are the same kind of noise, so all documented effects still hold; the courier and censoring numbers in this file and in `assumptions.md` were re-measured on the new data.
-
+The second-review fixes (minimum courier fleet, timezone pinning, corrected numbers) are in `docs/data_changes_v1_1.md`.
